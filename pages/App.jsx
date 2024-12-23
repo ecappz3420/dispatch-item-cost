@@ -254,7 +254,7 @@ const App = () => {
                 />
                 {baseCurrency !== convertedCurrency && (
                   <div className="p-1 text-xs flex items-center text-blue-500 justify-start gap-[10px]">
-                    <div>{`1 ${baseCurrency} = ${exchangeRate} ${convertedAmount}`}</div>
+                    <div>{`1 ${baseCurrency} = ${exchangeRate} ${convertedCurrency}`}</div>
                     <small
                       className="cursor-pointer"
                       onClick={() => setOpen(true)}
