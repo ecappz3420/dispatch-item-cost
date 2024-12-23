@@ -44,6 +44,7 @@ const App = () => {
   const [currencyModify, setCurrencyModify] = useState(0);
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [submission, setSubmission] = useState(false);
 
   const params = useSearchParams();
   const id = params.get("id");
@@ -157,6 +158,7 @@ const App = () => {
     setConvertedAmount(converted_amount.toFixed(2)); // round to 2 decimal places
   };
   const onSubmit = async (data) => {
+    setSubmission(true);
     const formData = {
       ...data,
       Paying_In: `${
@@ -327,7 +329,7 @@ const App = () => {
               />
             </div>
             <div className="flex justify-center gap-4 pt-[20px]">
-              <Button type="submit">Submit</Button>
+              <Button type="submit" disabled={submission}>Submit</Button>
               <Button variant="outline" type="button">
                 Reset
               </Button>
