@@ -169,6 +169,7 @@ const App = () => {
       } ${convertedAmount}`,
       Base_Currency: baseCurrency,
       Converted_Currency: convertedCurrency,
+      Approval_Status: "Pending",
     };
     console.log(formData);
     try {
