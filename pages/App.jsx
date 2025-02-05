@@ -1,41 +1,17 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect, useRef } from "react";
+import { Form, Input, InputNumber, Select, Button, Modal, Flex } from "antd";
 import currencies from "@/utils/currencies";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useSearchParams } from "next/navigation";
 
-const formSchema = z.object({
-  Item: z.string().nonempty({ message: "Item is required" }),
-  Paying_In: z.object({
-    currency: z.string(),
-    amount: z.number(),
-  }),
-  Cost: z.object({
-    currency: z.string(),
-    amount: z.number(),
-  }),
-});
+const currencyOptions = currencies.map((currency) => ({
+  label: currency.code,
+  value: currency.code,
+  key: currency.code,
+}));
 
 const App = () => {
+  const [form] = Form.useForm();
   const [baseCurrency, setBaseCurrency] = useState("USD");
   const [convertedCurrency, setConvertedCurrency] = useState("ZMW");
   const [amount, setAmount] = useState(0);
@@ -44,20 +20,10 @@ const App = () => {
   const [currencyModify, setCurrencyModify] = useState(0);
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [submission, setSubmission] = useState(false);
+  const inputRef = useRef(null);
 
   const params = useSearchParams();
   const id = params.get("id");
-
-  const form = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      Item: "",
-      Paying_In: { currency: "USD", amount: 0 },
-      Cost: { currency: "ZMW", amount: 0 },
-    },
-  });
-  const { setValue, handleSubmit , reset } = form;
 
   useEffect(() => {
     if (id) {
@@ -74,7 +40,7 @@ const App = () => {
           const data = await response.json();
           if (data.records.code === 3000) {
             const record = data.records.data[0];
-            setValue("Item", record.Item);
+            form.setFieldValue("Item", record.Item);
             setBaseCurrency(record.Base_Currency);
             setConvertedCurrency(record.Converted_Currency);
             setAmount(record.Paying_In?.replace(/[^0-9.]/g, "") || 0);
@@ -87,9 +53,7 @@ const App = () => {
       };
       fetchRecord();
     }
-  }, [id, reset]);
-
-  
+  }, [id]);
 
   const fetchExchangeRate = async (base, converted) => {
     try {
@@ -157,8 +121,42 @@ const App = () => {
     const converted_amount = amount * currencyModify;
     setConvertedAmount(converted_amount.toFixed(2)); // round to 2 decimal places
   };
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.select(); // Select the text inside the input
+      }, 100); // Small delay to ensure modal animation is complete
+    }
+  }, [open]);
+
+  const payingInCurrenciesSelect = (
+    <Form.Item name="Base_Currency" initialValue="USD" noStyle>
+      <Select
+        showSearch
+        options={currencyOptions.map(({ key, ...rest }) => ({
+          ...rest,
+          key,
+        }))}
+        onChange={(value) => handleBaseCurrencyChange(value)}
+      />
+    </Form.Item>
+  );
+
+  const costCurrenciesSelect = (
+    <Form.Item name="Converted_Currency" initialValue="ZMW" noStyle>
+      <Select
+        showSearch
+        options={currencyOptions.map(({ key, ...rest }) => ({
+          ...rest,
+          key,
+        }))}
+        onChange={(value) => handleCurrencyChange(value)}
+      />
+    </Form.Item>
+  );
+
   const onSubmit = async (data) => {
-    setSubmission(true);
     const formData = {
       ...data,
       Paying_In: `${
@@ -184,14 +182,10 @@ const App = () => {
       });
       const result = await response.json();
       console.log(result);
-      window.location.reload();
+      form.resetFields();
     } catch (error) {
       console.error(error);
     }
-  };
-
-  const onErrors = (errors) => {
-    console.log("Errors:", errors);
   };
 
   return (
@@ -200,142 +194,93 @@ const App = () => {
         <h4 className="font-medium">Dispatch Item Cost</h4>
       </div>
       <div className="px-2 pb-2">
-        <Form {...form}>
-          <form onSubmit={handleSubmit(onSubmit, onErrors)}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 py-2 gap-4 justify-items-start">
-              <FormField
-                control={form.control}
-                name="Item"
-                render={({ field }) => (
-                  <FormItem className="w-[300px] max-w-[300px]">
-                    <FormLabel>Item</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              ></FormField>
-              <div>
-                <FormField
-                  control={form.control}
-                  name="Paying_In"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Paying In</FormLabel>
-                      <div className="flex h-11 items-center border rounded space-x-2 w-[300px]">
-                        <select
-                          value={baseCurrency || "USD"}
-                          onChange={(e) => {
-                            const newValue = {
-                              ...field.value,
-                              currency: e.target.value,
-                            };
-                            field.onChange(newValue);
-                            handleBaseCurrencyChange(e.target.value);
-                          }}
-                          className="p-2 rounded outline-none"
-                        >
-                          {currencies.map((curr, i) => (
-                            <option value={curr.code} key={i}>
-                              {curr.code}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={amount}
-                          className="w-full border-0 outline-none p-2 rounded"
-                          onChange={(e) => {
-                            handleAmountChange(e.target.value);
-                          }}
-                        />
-                      </div>
-                    </FormItem>
-                  )}
+        <Form
+          form={form}
+          onFinish={onSubmit}
+          layout="vertical"
+          scrollToFirstError={true}
+          initialValues={{ Paying_In: 0, Cost: 0 }}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 py-2 gap-4 justify-items-start">
+            <Form.Item
+              label="Item"
+              name="Item"
+              rules={[{ required: true, message: "Item is required" }]}
+              className="w-[300px]"
+            >
+              <Input />
+            </Form.Item>
+            <Flex vertical>
+              <Form.Item
+                label="Paying In"
+                name="Paying_In"
+                className="w-[300px] mb-1"
+              >
+                <InputNumber
+                  step={0.01}
+                  addonBefore={payingInCurrenciesSelect}
+                  className="w-[300px]"
+                  onChange={(value) => handleAmountChange(value)}
                 />
-                {baseCurrency !== convertedCurrency && (
-                  <div className="p-1 text-xs flex items-center text-blue-500 justify-start gap-[10px]">
-                    <div>{`1 ${baseCurrency} = ${exchangeRate} ${convertedCurrency}`}</div>
-                    <small
-                      className="cursor-pointer"
-                      onClick={() => setOpen(true)}
-                    >
-                      Edit
-                    </small>
-                    <Dialog open={open} onOpenChange={setOpen}>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Modify Currency</DialogTitle>
-                        </DialogHeader>
-                        <div>
-                          <Input
-                            value={currencyModify}
-                            onChange={(e) => setCurrencyModify(e.target.value)}
-                          />
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            type="submit"
-                            onClick={() => {
-                              handleConversionRate();
-                              setOpen(false);
-                            }}
-                          >
-                            Save
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                )}
-              </div>
-
-              <FormField
-                control={form.control}
-                name="Cost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cost</FormLabel>
-                    <div className="flex h-11 items-center border rounded space-x-2 w-[300px]">
-                      <select
-                        value={convertedCurrency || "ZMW"}
-                        onChange={(e) => {
-                          const newValue = {
-                            ...field.value,
-                            currency: e.target.value,
-                          };
-                          field.onChange(newValue);
-                          handleCurrencyChange(e.target.value);
+              </Form.Item>
+              {baseCurrency !== convertedCurrency && (
+                <div className="p-1 text-xs flex items-center text-blue-500 justify-start gap-[10px]">
+                  <div>{`1 ${baseCurrency} = ${exchangeRate} ${convertedCurrency}`}</div>
+                  <small
+                    className="cursor-pointer"
+                    onClick={() => setOpen(true)}
+                  >
+                    Edit
+                  </small>
+                  <Modal
+                    title="Modify Currency"
+                    open={open}
+                    onClose={() => setOpen((curr) => !curr)}
+                    onCancel={() => setOpen((curr) => !curr)}
+                    footer={
+                      <Button
+                        type="submit"
+                        onClick={() => {
+                          handleConversionRate();
+                          setOpen(false);
                         }}
-                        className="p-2 rounded outline-none"
                       >
-                        {currencies.map((curr, i) => (
-                          <option value={curr.code} key={i}>
-                            {curr.code}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={convertedAmount}
-                        className="w-full border-0 outline-none p-2 rounded"
-                        readOnly
-                      />
-                    </div>
-                  </FormItem>
-                )}
+                        Save
+                      </Button>
+                    }
+                  >
+                    <Input
+                      autoFocus
+                      ref={inputRef}
+                      className="mt-2"
+                      defaultValue={currencyModify}
+                      onChange={(e) => setCurrencyModify(e.target.value)}
+                    />
+                  </Modal>
+                </div>
+              )}
+            </Flex>
+            <Form.Item label="Cost" name="Cost" className="w-[300px]">
+              <InputNumber
+                step={0.01}
+                addonBefore={costCurrenciesSelect}
+                className="w-[300px]"
+                readOnly
               />
-            </div>
-            <div className="flex justify-center gap-4 pt-[20px]">
-              <Button type="submit" disabled={submission}>Submit</Button>
-              <Button variant="outline" type="button">
+            </Form.Item>
+          </div>
+          <Flex justify="center" gap="large">
+            <Form.Item label={null}>
+              <Button className="w-28" htmlType="reset">
                 Reset
               </Button>
-            </div>
-          </form>
+            </Form.Item>
+            <Form.Item label={null}>
+              <Button type="primary" htmlType="submit" className="w-28">
+                Submit
+              </Button>
+            </Form.Item>
+          </Flex>
         </Form>
       </div>
     </>
