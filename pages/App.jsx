@@ -198,7 +198,6 @@ const App = () => {
           form={form}
           onFinish={onSubmit}
           layout="vertical"
-          scrollToFirstError={true}
           initialValues={{ Paying_In: 0, Cost: 0 }}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 py-2 gap-4 justify-items-start">
@@ -262,10 +261,11 @@ const App = () => {
             </Flex>
             <Form.Item label="Cost" name="Cost" className="w-[300px]">
               <InputNumber
+                value={convertedAmount}
                 step={0.01}
                 addonBefore={costCurrenciesSelect}
                 className="w-[300px]"
-                readOnly
+                disabled
               />
             </Form.Item>
           </div>
